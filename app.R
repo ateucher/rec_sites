@@ -176,9 +176,11 @@ server <- function(input, output) {
         }
         
         leafletProxy("map") %>% 
-            clearMarkers() %>% 
-            clearMarkerClusters() %>% 
-            addSiteMarkers(data = disp_sites)
+          clearMarkers() %>% 
+          clearMarkerClusters() %>% 
+          # Only add markers if there are sites left (otherwise Shiny crashes)
+          {if (nrow(disp_sites)) addSiteMarkers(., data = disp_sites) else .}
+
     })
     
     output$site_description <- renderText({
