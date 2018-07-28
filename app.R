@@ -2,19 +2,9 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
-library(httr)
 
-base_url <- "https://openmaps.gov.bc.ca/geo/pub/WHSE_FOREST_TENURE.FTEN_REC_SITE_POINTS_SVW/ows"
-response <- httr::GET(base_url,
-                      query = list(service = "WFS", 
-                                   version = "2.0.0", 
-                                   request = "GetFeature", 
-                                   typeName = "WHSE_FOREST_TENURE.FTEN_REC_SITE_POINTS_SVW", 
-                                   outputFormat = "json", 
-                                   SRSNAME = "epsg:4326"))
-stop_for_status(response)
+rec_sites <- readRDS("rec_sites.rds")
 
-rec_sites <- read_sf(content(response, as = "text"))
 rec_sites_data <- st_set_geometry(rec_sites, NULL)
 
 access_cols <- names(rec_sites_data)[grepl("^SUB_ACCESS\\d", names(rec_sites_data))]
@@ -60,10 +50,17 @@ df_row_to_html_list <- function(x) {
 }
 
 addSiteMarkers <- function(map, data) {
-    addCircleMarkers(map = map, data = data, radius = 6, color = "#007f00",
+    addCircleMarkers(map = map, data = data, radius = 7, color = "#007f00",
                      opacity = 0.8, fillOpacity = 0.5, weight = 3,
                      clusterOptions = markerClusterOptions(), 
+                     label = ~labelify(PROJECT_NAME),
                      layerId = ~FOREST_FILE_ID)
+}
+
+labelify <- function(x) {
+  tools::toTitleCase(tolower(
+    gsub("\\.", ". ", x)
+  ))
 }
 
 ui <- fluidPage(
@@ -75,7 +72,7 @@ ui <- fluidPage(
     titlePanel("B.C. Recreation Sites Explorer"),
     p("A tool to help you explore British Columbia's", 
       a(href = "http://www.sitesandtrailsbc.ca/", "Recreation Sites"), 
-      "and find a place to go camping!"),
+      "and find a place to go camping off the beaten track!"),
     p("This site is not affiliated with the Government of British Columbia. 
       It uses open data from the", 
       a(href = "https://catalogue.data.gov.bc.ca/dataset/bc37b35d-8d00-45ab-9ab2-57cae75637ad", 
@@ -189,9 +186,7 @@ server <- function(input, output) {
         
         row <- rec_sites_data[rec_sites_data$FOREST_FILE_ID == input$map_marker_click$id, ]
         
-        site_name <- tools::toTitleCase(tolower(
-            gsub("\\.", ". ", row$PROJECT_NAME)
-        ))
+        site_name <- labelify(row$PROJECT_NAME)
         
         paste0(sprintf("<h3>
                        <a href=http://www.sitesandtrailsbc.ca/search/search-result.aspx?site=%s&type=Site>", 
